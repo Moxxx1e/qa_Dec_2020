@@ -35,17 +35,34 @@ type Value struct {
 }
 
 // TODO: крайние случаи
-func FillValues(params []*Param, paramValue map[uint64]uint64) {
+func FillValues(params []*Param, paramValue map[uint64]interface{}) {
 	for _, param := range params {
 		var buf []*Param
 		buf = append(buf, param)
 		for len(buf) != 0 {
 			tmp := buf[0]
 			buf = append(buf[:0], buf[1:]...)
-			for _, value := range tmp.Values {
-				if paramValue[tmp.ID] == value.ID {
-					tmp.Value = value.Title
+
+			// если в values в value - строка
+			if len(tmp.Values) == 0 {
+				switch paramValue[tmp.ID].(type) {
+				case string:
+					tmp.Value = paramValue[tmp.ID]
 				}
+				continue
+			}
+
+			for _, value := range tmp.Values {
+				fmt.Println(paramValue[tmp.ID], value.ID)
+				switch paramValue[tmp.ID].(type) {
+				case int:
+					if paramValue[tmp.ID] == int(value.ID) {
+						tmp.Value = value.Title
+					}
+				case string:
+					tmp.Value = fmt.Sprintf("%s", paramValue[tmp.ID])
+				}
+
 				buf = append(buf, value.Params...)
 			}
 		}
@@ -53,7 +70,7 @@ func FillValues(params []*Param, paramValue map[uint64]uint64) {
 }
 
 type Objects struct {
-	Objects []*Object `json:"objects"`
+	Objects []*Object `json:"values"`
 }
 
 func ReadObjects(filename string) (*Objects, error) {
@@ -69,12 +86,12 @@ func ReadObjects(filename string) (*Objects, error) {
 	return &objects, nil
 }
 
-func ParseObjects(objects *Objects) map[uint64]interface{} {
+func ParseObjects(objects *Objects) *map[uint64]interface{} {
 	var result = make(map[uint64]interface{}, len(objects.Objects))
 	for _, object := range objects.Objects {
-		result[object.ParamID] = object.ValueID.(uint64)
+		result[object.ParamID] = object.ValueID
 	}
-	return result
+	return &result
 }
 
 func main() {
@@ -92,7 +109,14 @@ func main() {
 		fmt.Println(*param)
 	}
 
-	FillValues(params.Params, map[uint64]uint64{122: 646, 421: 877})
+	objects, err := ReadObjects("Values.json")
+	if err != nil {
+		log.Fatal(err)
+	}
+	objectsMap := ParseObjects(objects)
+	fmt.Println(objectsMap)
+
+	FillValues(params.Params, map[uint64]interface{}{122: 646, 421: 877, 146: "Валидация параметров на подаче объявления"})
 	for _, param := range params.Params {
 		fmt.Println(*param)
 	}
