@@ -53,14 +53,13 @@ func FillValues(params []*Param, paramValue map[uint64]interface{}) {
 			}
 
 			for _, value := range tmp.Values {
-				fmt.Println(paramValue[tmp.ID], value.ID)
 				switch paramValue[tmp.ID].(type) {
-				case int:
-					if paramValue[tmp.ID] == int(value.ID) {
+				case uint64:
+					if paramValue[tmp.ID] == uint64(value.ID) {
 						tmp.Value = value.Title
 					}
 				case string:
-					tmp.Value = fmt.Sprintf("%s", paramValue[tmp.ID])
+					tmp.Value = paramValue[tmp.ID]
 				}
 
 				buf = append(buf, value.Params...)
@@ -89,7 +88,15 @@ func ReadObjects(filename string) (*Objects, error) {
 func ParseObjects(objects *Objects) *map[uint64]interface{} {
 	var result = make(map[uint64]interface{}, len(objects.Objects))
 	for _, object := range objects.Objects {
-		result[object.ParamID] = object.ValueID
+		switch object.ValueID.(type) {
+		case float64:
+			result[object.ParamID] = uint64(object.ValueID.(float64))
+		case string:
+			result[object.ParamID] = object.ValueID
+		default:
+			// TODO: нормальная ошибка (errors.json)
+			log.Fatal("conversion error")
+		}
 	}
 	return &result
 }
@@ -105,6 +112,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	fmt.Println("params")
 	for _, param := range params.Params {
 		fmt.Println(*param)
 	}
@@ -114,10 +123,19 @@ func main() {
 		log.Fatal(err)
 	}
 	objectsMap := ParseObjects(objects)
-	fmt.Println(objectsMap)
+	//fmt.Println(objectsMap)
 
-	FillValues(params.Params, map[uint64]interface{}{122: 646, 421: 877, 146: "Валидация параметров на подаче объявления"})
+	FillValues(params.Params, *objectsMap)
 	for _, param := range params.Params {
 		fmt.Println(*param)
+	}
+
+	paramsBytes, err := json.MarshalIndent(params, "", "	")
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = ioutil.WriteFile("MyStructureWithValues.json", paramsBytes, 0777)
+	if err != nil {
+		log.Fatal(err)
 	}
 }
