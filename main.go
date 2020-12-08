@@ -2,14 +2,12 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
+	"flag"
 	"io/ioutil"
 	"log"
 )
 
 // Values.json
-// фактически в этом объекте нет необходимости
-// быстрее будет парсить json в мапку [paramID: valueID]
 type Object struct {
 	ParamID uint64      `json:"id"`
 	ValueID interface{} `json:"value"` // can be string or int
@@ -18,9 +16,9 @@ type Object struct {
 // TestcaseStructure.json
 type Param struct {
 	ID     uint64      `json:"id"`
-	Title  string      `json:"title"`            // название параметра
-	Value  interface{} `json:"value"`            // выбранное значение - строка
-	Values []*Value    `json:"values,omitempty"` // массив возможных значений
+	Title  string      `json:"title"`
+	Value  interface{} `json:"value"`
+	Values []*Value    `json:"values,omitempty"`
 }
 
 type Params struct {
@@ -34,7 +32,6 @@ type Value struct {
 	Params []*Param `json:"params,omitempty"`
 }
 
-// TODO: крайние случаи
 func FillValues(params []*Param, paramValue map[uint64]interface{}) {
 	for _, param := range params {
 		var buf []*Param
@@ -43,7 +40,7 @@ func FillValues(params []*Param, paramValue map[uint64]interface{}) {
 			tmp := buf[0]
 			buf = append(buf[:0], buf[1:]...)
 
-			// если в values в value - строка
+			// если в values пусто
 			if len(tmp.Values) == 0 {
 				switch paramValue[tmp.ID].(type) {
 				case string:
@@ -53,13 +50,8 @@ func FillValues(params []*Param, paramValue map[uint64]interface{}) {
 			}
 
 			for _, value := range tmp.Values {
-				switch paramValue[tmp.ID].(type) {
-				case uint64:
-					if paramValue[tmp.ID] == uint64(value.ID) {
-						tmp.Value = value.Title
-					}
-				case string:
-					tmp.Value = paramValue[tmp.ID]
+				if paramValue[tmp.ID] == uint64(value.ID) {
+					tmp.Value = value.Title
 				}
 
 				buf = append(buf, value.Params...)
@@ -89,6 +81,7 @@ func ParseObjects(objects *Objects) *map[uint64]interface{} {
 	var result = make(map[uint64]interface{}, len(objects.Objects))
 	for _, object := range objects.Objects {
 		switch object.ValueID.(type) {
+		// TODO: если придёт правда float?
 		case float64:
 			result[object.ParamID] = uint64(object.ValueID.(float64))
 		case string:
@@ -101,41 +94,67 @@ func ParseObjects(objects *Objects) *map[uint64]interface{} {
 	return &result
 }
 
-func main() {
-	jsonBytes, err := ioutil.ReadFile("TestcaseStructure.json")
+func WriteResult(params *Params, filename string) error {
+	paramsBytes, err := json.MarshalIndent(params, "", "  ")
 	if err != nil {
-		log.Fatal(err)
+		return err
+	}
+	err = ioutil.WriteFile(filename, paramsBytes, 0777)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func GetParamsFromFile(filename string) (*Params, error) {
+	jsonBytes, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, err
 	}
 
-	var params Params
+	var params *Params
 	err = json.Unmarshal(jsonBytes, &params)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
+	return params, nil
+}
 
-	fmt.Println("params")
-	for _, param := range params.Params {
-		fmt.Println(*param)
-	}
-
-	objects, err := ReadObjects("Values.json")
+func GetObjectsMapFromFile(filename string) (*map[uint64]interface{}, error) {
+	objects, err := ReadObjects(filename)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	objectsMap := ParseObjects(objects)
-	//fmt.Println(objectsMap)
+	return objectsMap, nil
+}
 
-	FillValues(params.Params, *objectsMap)
-	for _, param := range params.Params {
-		fmt.Println(*param)
+const usageMsg = "usage: go run main.go <TestcaseStructure.json>" +
+	" <Values.json> <StructureWithValues.json>"
+
+func GetFilenames() (string, string, string) {
+	if len(flag.Args()) != 3 {
+		log.Fatal(usageMsg)
 	}
+	return flag.Arg(0), flag.Arg(1), flag.Arg(2)
+}
 
-	paramsBytes, err := json.MarshalIndent(params, "", "	")
+func main() {
+	flag.Parse()
+	testCaseStructure, values, structureWithValues := GetFilenames()
+
+	params, err := GetParamsFromFile(testCaseStructure)
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = ioutil.WriteFile("MyStructureWithValues.json", paramsBytes, 0777)
+	objectsMap, err := GetObjectsMapFromFile(values)
 	if err != nil {
+		log.Fatal(err)
+	}
+
+	FillValues(params.Params, *objectsMap)
+
+	if err := WriteResult(params, structureWithValues); err != nil {
 		log.Fatal(err)
 	}
 }
