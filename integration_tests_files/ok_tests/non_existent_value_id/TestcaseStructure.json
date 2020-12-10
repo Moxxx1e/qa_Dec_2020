@@ -1,0 +1,19 @@
+{
+  "params": [
+    {
+      "id": 34,
+      "title": "testcaseId",
+      "value": "",
+      "values": [
+        {
+          "id": 4931,
+          "title": "Publish item"
+        },
+        {
+          "id": 4932,
+          "title": "Edit item"
+        }
+      ]
+    }
+  ]
+}
