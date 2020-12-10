@@ -11,6 +11,6 @@ const DefaultExpectedFilename = "Expected.json"
 
 const EmptyParamMsg = "Проставляем вручную"
 
-const OkIntegrationFilesDirectory = "integration_tests_files/ok_tests"
-const ErrorIntegrationFilesDirectory = "integration_tests_files/err_tests"
+const OkIntegrationFilesDirectory = "../integration_tests_files/ok_tests"
+const ErrorIntegrationFilesDirectory = "../integration_tests_files/err_tests"
 
