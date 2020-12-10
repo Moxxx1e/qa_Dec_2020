@@ -1,0 +1,10 @@
+language: go
+go: "1.15.2"
+os: linux
+
+jobs:
+  include:
+    - stage: test
+      script: go test ./... -cover
+    - stage: build
+      script: go build cmd/main.go
